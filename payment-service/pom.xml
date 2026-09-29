@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.mizal.pgs</groupId>
+        <groupId>com.pgs</groupId>
         <artifactId>payment-gateway-sim</artifactId>
         <version>0.1.0-SNAPSHOT</version>
     </parent>
@@ -16,7 +16,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.mizal.pgs</groupId>
+            <groupId>com.pgs</groupId>
             <artifactId>common</artifactId>
         </dependency>
         <dependency>
