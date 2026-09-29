@@ -1,4 +1,4 @@
-# Payment Gateway Sim
+# Payment Gateway Simulator
 
 ![CI](https://github.com/amirizalrahmat0799/payment-gateway-sim/actions/workflows/ci.yml/badge.svg)
 ![Java](https://img.shields.io/badge/Java-21-orange)
