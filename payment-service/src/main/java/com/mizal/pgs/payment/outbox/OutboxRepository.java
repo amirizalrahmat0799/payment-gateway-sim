@@ -21,4 +21,7 @@ public interface OutboxRepository extends JpaRepository<OutboxEvent, UUID> {
             FOR UPDATE SKIP LOCKED
             """, nativeQuery = true)
     List<OutboxEvent> lockNextBatch(@Param("limit") int limit);
+
+    /** Events not yet relayed to Kafka: a growing number means the relay or Kafka is unhealthy. */
+    long countByPublishedAtIsNull();
 }

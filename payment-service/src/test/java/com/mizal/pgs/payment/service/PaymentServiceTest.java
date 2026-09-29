@@ -14,6 +14,7 @@ import com.mizal.pgs.payment.domain.RefundRepository;
 import com.mizal.pgs.payment.issuer.IssuerSimulator;
 import com.mizal.pgs.payment.outbox.OutboxWriter;
 import com.mizal.pgs.payment.web.dto.CreatePaymentRequest;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -60,7 +61,8 @@ class PaymentServiceTest {
     @BeforeEach
     void setUp() {
         service = new PaymentService(payments, refunds, idempotencyRecords, tokenization,
-                new IssuerSimulator(5_000_000), outbox, tx);
+                new IssuerSimulator(5_000_000), outbox, tx,
+                new PaymentMetrics(new SimpleMeterRegistry()));
     }
 
     @SuppressWarnings("unchecked")

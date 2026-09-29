@@ -1,7 +1,11 @@
 server:
   port: 8083
+  # Finish in-flight requests when Kubernetes sends SIGTERM
+  shutdown: graceful
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
   application:
     name: tokenization-service
   datasource:
@@ -22,7 +26,21 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      # /actuator/health/liveness and /actuator/health/readiness for Kubernetes probes
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 
 springdoc:
   swagger-ui:

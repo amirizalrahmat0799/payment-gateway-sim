@@ -9,6 +9,7 @@ import com.mizal.pgs.payment.domain.IdempotencyRecord;
 import com.mizal.pgs.payment.domain.IdempotencyRecordRepository;
 import com.mizal.pgs.payment.domain.Payment;
 import com.mizal.pgs.payment.domain.PaymentRepository;
+import com.mizal.pgs.payment.domain.PaymentStatus;
 import com.mizal.pgs.payment.domain.Refund;
 import com.mizal.pgs.payment.domain.RefundRepository;
 import com.mizal.pgs.payment.issuer.AuthorizationDecision;
@@ -37,10 +38,12 @@ public class PaymentService {
     private final IssuerSimulator issuer;
     private final OutboxWriter outbox;
     private final TransactionTemplate tx;
+    private final PaymentMetrics metrics;
 
     public PaymentService(PaymentRepository payments, RefundRepository refunds,
                           IdempotencyRecordRepository idempotencyRecords, TokenizationClient tokenization,
-                          IssuerSimulator issuer, OutboxWriter outbox, TransactionTemplate tx) {
+                          IssuerSimulator issuer, OutboxWriter outbox, TransactionTemplate tx,
+                          PaymentMetrics metrics) {
         this.payments = payments;
         this.refunds = refunds;
         this.idempotencyRecords = idempotencyRecords;
@@ -48,6 +51,7 @@ public class PaymentService {
         this.issuer = issuer;
         this.outbox = outbox;
         this.tx = tx;
+        this.metrics = metrics;
     }
 
     public record CreateResult(Payment payment, boolean replayed) {
@@ -81,7 +85,7 @@ public class PaymentService {
         AuthorizationDecision decision = issuer.authorize(card, request.amount());
 
         try {
-            return tx.execute(status -> {
+            CreateResult result = tx.execute(status -> {
                 Payment payment = decision.approved()
                         ? Payment.authorized(merchant.merchantId(), request.amount(), request.currency(), card,
                         merchant.feeBps(), request.description(), decision.authCode())
@@ -100,6 +104,8 @@ public class PaymentService {
                         new IdempotencyRecord(merchant.merchantId(), idempotencyKey, requestHash, payment.getId()));
                 return new CreateResult(payment, false);
             });
+            recordCreated(result);
+            return result;
         } catch (DataIntegrityViolationException raceLost) {
             return findReplay(merchant.merchantId(), idempotencyKey, requestHash).orElseThrow(() -> raceLost);
         }
@@ -110,6 +116,7 @@ public class PaymentService {
         Payment payment = load(merchant, paymentId);
         long captured = payment.capture(amount);
         outbox.append(event(payment, PaymentEventType.CAPTURED, captured));
+        metrics.captured(payment.getCurrency(), captured);
         return payment;
     }
 
@@ -126,6 +133,7 @@ public class PaymentService {
         payment.refund(amount);
         Refund refund = refunds.save(new Refund(payment.getId(), amount));
         outbox.append(event(payment, PaymentEventType.REFUNDED, amount));
+        metrics.refunded(payment.getCurrency(), amount);
         return new RefundResult(refund, payment);
     }
 
@@ -144,6 +152,14 @@ public class PaymentService {
     public Page<Payment> list(MerchantContext merchant, int page, int size) {
         return payments.findByMerchantIdOrderByCreatedAtDesc(merchant.merchantId(),
                 PageRequest.of(page, Math.min(size, 100)));
+    }
+
+    private void recordCreated(CreateResult result) {
+        Payment p = result.payment();
+        metrics.authorization(p.getStatus() != PaymentStatus.DECLINED);
+        if (p.getCapturedAmount() > 0) {
+            metrics.captured(p.getCurrency(), p.getCapturedAmount());
+        }
     }
 
     private Optional<CreateResult> findReplay(UUID merchantId, String idempotencyKey, String requestHash) {
