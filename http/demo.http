@@ -1,0 +1,111 @@
+### Payment Gateway Sim: end-to-end demo
+### Open in IntelliJ IDEA and run the requests top to bottom (HTTP Client).
+### Values captured from responses are reused in later requests.
+
+### 1. Onboard a merchant (the API key is only shown once)
+POST http://localhost:8081/api/v1/merchants
+Content-Type: application/json
+
+{
+  "name": "Kedai Kopi Cyberjaya",
+  "email": "owner@kedaikopi.example",
+  "feeBps": 250
+}
+
+> {%
+    client.global.set("merchantId", response.body.id);
+    client.global.set("apiKey", response.body.apiKey);
+%}
+
+### 2. Tokenize a card (in real life the checkout page calls this, not the merchant server)
+POST http://localhost:8083/api/v1/tokens
+Content-Type: application/json
+
+{
+  "pan": "4242 4242 4242 4242",
+  "expiryMonth": 12,
+  "expiryYear": 2030,
+  "cardholderName": "Ahmad Test"
+}
+
+> {% client.global.set("cardToken", response.body.token); %}
+
+### 3. Authorize RM 150.00 (not captured yet)
+POST http://localhost:8082/api/v1/payments
+Content-Type: application/json
+X-Api-Key: {{apiKey}}
+Idempotency-Key: order-1001-attempt
+
+{
+  "amount": 15000,
+  "currency": "MYR",
+  "cardToken": "{{cardToken}}",
+  "capture": false,
+  "description": "Order #1001"
+}
+
+> {% client.global.set("paymentId", response.body.id); %}
+
+### 4. Retry the exact same request: returns the SAME payment, header Idempotent-Replayed: true
+POST http://localhost:8082/api/v1/payments
+Content-Type: application/json
+X-Api-Key: {{apiKey}}
+Idempotency-Key: order-1001-attempt
+
+{
+  "amount": 15000,
+  "currency": "MYR",
+  "cardToken": "{{cardToken}}",
+  "capture": false,
+  "description": "Order #1001"
+}
+
+### 5. Partially capture RM 120.00 (remaining RM 30.00 hold is released)
+POST http://localhost:8082/api/v1/payments/{{paymentId}}/capture
+Content-Type: application/json
+X-Api-Key: {{apiKey}}
+
+{ "amount": 12000 }
+
+### 6. Refund RM 20.00
+POST http://localhost:8082/api/v1/payments/{{paymentId}}/refunds
+Content-Type: application/json
+X-Api-Key: {{apiKey}}
+
+{ "amount": 2000 }
+
+### 7. Try to refund more than is left: 422
+POST http://localhost:8082/api/v1/payments/{{paymentId}}/refunds
+Content-Type: application/json
+X-Api-Key: {{apiKey}}
+
+{ "amount": 999999 }
+
+### 8. Declined card (ends in 0002)
+POST http://localhost:8083/api/v1/tokens
+Content-Type: application/json
+
+{ "pan": "4000000000000002", "expiryMonth": 12, "expiryYear": 2030 }
+
+> {% client.global.set("declineToken", response.body.token); %}
+
+###
+POST http://localhost:8082/api/v1/payments
+Content-Type: application/json
+X-Api-Key: {{apiKey}}
+Idempotency-Key: order-1002-attempt
+
+{ "amount": 5000, "currency": "MYR", "cardToken": "{{declineToken}}", "capture": true }
+
+### 9. Ledger in settlement-service (filled asynchronously via Kafka)
+GET http://localhost:8084/api/v1/ledger?merchantId={{merchantId}}
+
+### 10. Run settlement for today (normally runs nightly at 00:05 UTC for yesterday).
+###     Replace the date with today's date (UTC).
+POST http://localhost:8084/api/v1/settlements/run?date=2026-09-30
+
+### 11. Running the same date again: 409 (Spring Batch job instance already complete)
+POST http://localhost:8084/api/v1/settlements/run?date=2026-09-30
+
+### 12. Settlement report
+GET http://localhost:8084/api/v1/settlements?merchantId={{merchantId}}

@@ -1,0 +1,18 @@
+target/
+*.class
+*.log
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local env
+.env

@@ -1,0 +1,44 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/payment_db
+    username: pgs
+    password: pgs
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  kafka:
+    bootstrap-servers: localhost:29092
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+
+clients:
+  merchant:
+    base-url: http://localhost:8081
+  tokenization:
+    base-url: http://localhost:8083
+
+outbox:
+  poll-interval-ms: 1000
+  batch-size: 50
+
+issuer:
+  # Authorizations above this amount (minor units) are declined: 5,000,000 = 50,000.00
+  max-amount: 5000000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
