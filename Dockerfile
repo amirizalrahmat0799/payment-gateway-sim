@@ -17,6 +17,8 @@ RUN mvn -B -q -pl ${MODULE} -am package -DskipTests \
     && cp ${MODULE}/target/${MODULE}-*.jar /workspace/app.jar
 
 FROM eclipse-temurin:21-jre-alpine
+# Links images pushed to GHCR to this repository
+LABEL org.opencontainers.image.source=https://github.com/amirizalrahmat0799/payment-gateway-sim
 # Fixed numeric UID so Kubernetes can verify runAsNonRoot
 RUN addgroup -S -g 10001 app && adduser -S -u 10001 -G app app
 USER 10001
