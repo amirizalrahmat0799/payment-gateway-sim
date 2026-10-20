@@ -1,6 +1,6 @@
 # Payment Gateway Simulator
 
-![CI](https://github.com/amirizalrahmat0799/payment-gateway-sim/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/amirizalrahmat0799/payment-gateway-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/amirizalrahmat0799/payment-gateway-sim/actions/workflows/ci.yml)
 ![Java](https://img.shields.io/badge/Java-21-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F)
 ![Kafka](https://img.shields.io/badge/Apache%20Kafka-KRaft-black)
